@@ -1,124 +1,13 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Banco Nexus</title>
-
-  <style>
-    body{
-      font-family: Arial;
-      background:#0f172a;
-      color:white;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      min-height:100vh;
-    }
-
-    .container{
-      width:500px;
-      background:#1e293b;
-      padding:25px;
-      border-radius:10px;
-    }
-
-    input{
-      width:100%;
-      padding:10px;
-      margin-top:10px;
-      border:none;
-      border-radius:5px;
-    }
-
-    button{
-      width:100%;
-      padding:10px;
-      margin-top:15px;
-      background:#3b82f6;
-      color:white;
-      border:none;
-      border-radius:5px;
-      cursor:pointer;
-    }
-
-    .resultado{
-      margin-top:20px;
-      background:#334155;
-      padding:15px;
-      border-radius:5px;
-    }
-
-    .transaccion{
-      background:#475569;
-      margin-top:10px;
-      padding:10px;
-      border-radius:5px;
-    }
-  </style>
-</head>
-<body>
-
-<div class="container">
-
-  <h1>Banco Nexus</h1>
-
-  <input
-    type="text"
-    id="cuenta"
-    placeholder="Número de cuenta"
-  >
-
-  <button onclick="consultarCuenta()">
-    Consultar Cuenta
-  </button>
-
-  <div id="resultado"></div>
-
-</div>
-
-<script>
-
-async function consultarCuenta(){
-
-  const cuenta = document.getElementById("cuenta").value;
-
-  const respuesta = await fetch(
-    `http://localhost:3000/api/cuenta/${cuenta}`
-  );
-
-  const data = await respuesta.json();
-
-  let html = `
-    <div class="resultado">
-      <h2>${data.cliente}</h2>
-
-      <p><strong>CURP:</strong> ${data.curp}</p>
-      <p><strong>Cuenta:</strong> ${data.cuenta}</p>
-      <p><strong>Tipo:</strong> ${data.tipo}</p>
-      <p><strong>Saldo:</strong> $${data.saldo}</p>
-
-      <h3>Transacciones</h3>
-  `;
-
-  data.transacciones.forEach(t => {
-
-    html += `
-      <div class="transaccion">
-        <p><strong>${t.tipo}</strong></p>
-        <p>Monto: $${t.monto}</p>
-        <p>${t.descripcion}</p>
-      </div>
-    `;
-
-  });
-
-  html += `</div>`;
-
-  document.getElementById("resultado").innerHTML = html;
-}
-
-</script>
-
-</body>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
