@@ -288,12 +288,13 @@ app.get("/api/cuentas/:numero/transacciones", async (req, res) => {
 // POST: Registrar nueva transacción
 app.post("/api/transacciones", async (req, res) => {
   try {
-    const { numeroCuenta, tipo, monto, descripcion } = req.body;
+    const { numeroCuenta, tipo, monto, descripcion, sucursal, nodoOrigen } = req.body;//cambio en DB
+    const montoNumerico = Number(monto);
 
-    // Validaciones
-    if (!numeroCuenta || !tipo || !monto) {
+    // Validaciones //cambio por DB
+    if (!numeroCuenta || !tipo || !monto || !sucursal) {
       return res.status(400).json({
-        error: "Faltan campos requeridos: numeroCuenta, tipo, monto"
+        error: "Faltan campos requeridos: numeroCuenta, tipo, monto, sucursal"
       });
     }
 
@@ -303,9 +304,9 @@ app.post("/api/transacciones", async (req, res) => {
       });
     }
 
-    if (monto <= 0) {
+    if (isNaN(montoNumerico) || montoNumerico <= 0) {
       return res.status(400).json({
-        error: "El monto debe ser mayor a 0"
+        error: "El monto debe ser un número mayor a 0"
       });
     }
 
@@ -332,16 +333,19 @@ app.post("/api/transacciones", async (req, res) => {
       .collection("cuentas")
       .updateOne({ _id: cuenta._id }, { $set: { saldo: nuevoSaldo } });
 
-    // Registrar transacción
+    // Registrar transacción //cambio por DB
     const transaccion = {
       cuentaId: cuenta._id,
       numeroCuenta: numeroCuenta,
       tipo: tipo,
-      monto: monto,
+      monto: montoNumerico,
       descripcion: descripcion || "",
+      sucursal: sucursal,
+      nodoOrigen: nodoOrigen || "Nodo-No-Especificado",
       saldoAnterior: cuenta.saldo,
       saldoNuevo: nuevoSaldo,
-      fecha: new Date()
+      fecha: new Date(),
+      estado: "Completada"
     };
 
     const resultado = await db
@@ -355,6 +359,198 @@ app.post("/api/transacciones", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: "Error al registrar transacción",
+      mensaje: error.message
+    });
+  }
+});
+
+app.post("/api/deposito", async (req, res) => {
+  try {
+    const { numeroCuenta, monto, sucursal, nodoOrigen } = req.body;
+    const montoNumerico = Number(monto);
+
+    if (!numeroCuenta || !monto || !sucursal) {
+      return res.status(400).json({
+        error: "Faltan campos requeridos: numeroCuenta, monto, sucursal"
+      });
+    }
+
+    if (isNaN(montoNumerico) || montoNumerico <= 0) {
+      return res.status(400).json({
+        error: "El monto debe ser un número mayor a 0"
+      });
+    }
+
+    const cuenta = await db.collection("cuentas").findOne({
+      numeroCuenta: numeroCuenta
+    });
+
+    if (!cuenta) {
+      return res.status(404).json({
+        error: "Cuenta no encontrada"
+      });
+    }
+
+    if (cuenta.estado !== "Activa") {
+      return res.status(400).json({
+        error: "La cuenta no está activa"
+      });
+    }
+
+    const resultado = await db.collection("cuentas").findOneAndUpdate(
+      { numeroCuenta: numeroCuenta },
+      { $inc: { saldo: montoNumerico  } },
+      { returnDocument: "after" }
+    );
+
+    const transaccion = {
+      cuentaId: cuenta._id,
+      numeroCuenta,
+      tipo: "Depósito",
+      monto,
+      descripcion: "Depósito desde sucursal",
+      sucursal,
+      nodoOrigen: nodoOrigen || "Nodo-No-Especificado",
+      saldoAnterior: cuenta.saldo,
+      saldoNuevo: resultado.saldo,
+      fecha: new Date(),
+      estado: "Completada"
+    };
+
+    await db.collection("transacciones").insertOne(transaccion);
+
+    res.json({
+      mensaje: "Depósito realizado correctamente",
+      cuenta: numeroCuenta,
+      saldoNuevo: resultado.saldo,
+      transaccion
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al realizar depósito",
+      mensaje: error.message
+    });
+  }
+});
+
+app.post("/api/retiro", async (req, res) => {
+  try {
+    const { numeroCuenta, monto, sucursal, nodoOrigen } = req.body;
+    const montoNumerico = Number(monto);
+
+    if (!numeroCuenta || !monto || !sucursal) {
+      return res.status(400).json({
+        error: "Faltan campos requeridos: numeroCuenta, monto, sucursal"
+      });
+    }
+
+    if (isNaN(montoNumerico) || montoNumerico <= 0) {
+      return res.status(400).json({
+        error: "El monto debe ser un número mayor a 0"
+      });
+    }
+
+    const cuenta = await db.collection("cuentas").findOne({
+      numeroCuenta: numeroCuenta
+    });
+
+    if (!cuenta) {
+      return res.status(404).json({
+        error: "Cuenta no encontrada"
+      });
+    }
+
+    if (cuenta.estado !== "Activa") {
+      return res.status(400).json({
+        error: "La cuenta no está activa"
+      });
+    }
+
+    if (cuenta.saldo < montoNumerico) {
+      return res.status(400).json({
+        error: "Saldo insuficiente para realizar el retiro"
+      });
+    }
+
+    const resultado = await db.collection("cuentas").findOneAndUpdate(
+      {
+        numeroCuenta: numeroCuenta,
+        saldo: { $gte: montoNumerico },
+        estado: "Activa"
+      },
+      {
+        $inc: { saldo: -montoNumerico }
+      },
+      {
+        returnDocument: "after"
+      }
+    );
+
+    if (!resultado) {
+      return res.status(400).json({
+        error: "No se pudo realizar el retiro. Verifique saldo o estado de cuenta."
+      });
+    }
+
+    const transaccion = {
+      cuentaId: cuenta._id,
+      numeroCuenta,
+      tipo: "Retiro",
+      monto: montoNumerico,
+      descripcion: "Retiro desde sucursal",
+      sucursal,
+      nodoOrigen: nodoOrigen || "Nodo-No-Especificado",
+      saldoAnterior: cuenta.saldo,
+      saldoNuevo: resultado.saldo,
+      fecha: new Date(),
+      estado: "Completada"
+    };
+
+    await db.collection("transacciones").insertOne(transaccion);
+
+    res.json({
+      mensaje: "Retiro realizado correctamente",
+      cuenta: numeroCuenta,
+      saldoNuevo: resultado.saldo,
+      transaccion
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al realizar retiro",
+      mensaje: error.message
+    });
+  }
+});
+
+app.get("/api/historial/:cuenta", async (req, res) => {
+  try {
+    const numeroCuenta = req.params.cuenta;
+
+    const cuenta = await db.collection("cuentas").findOne({
+      numeroCuenta: numeroCuenta
+    });
+
+    if (!cuenta) {
+      return res.status(404).json({
+        error: "Cuenta no encontrada"
+      });
+    }
+
+    const historial = await db
+      .collection("transacciones")
+      .find({ numeroCuenta: numeroCuenta })
+      .sort({ fecha: -1 })
+      .toArray();
+
+    res.json({
+      cuenta: numeroCuenta,
+      saldoActual: cuenta.saldo,
+      totalTransacciones: historial.length,
+      historial
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al obtener historial",
       mensaje: error.message
     });
   }
