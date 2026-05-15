@@ -21,6 +21,15 @@ async function crearBaseDeDatos() {
     await cuentas.deleteMany({});
     await transacciones.deleteMany({});
 
+    //sucursales
+    const sucursales = [
+      { nombre: "Sucursal La Paz", nodo: "Nodo-LaPaz" },
+      { nombre: "Sucursal CDMX", nodo: "Nodo-CDMX" },
+      { nombre: "Sucursal Guadalajara", nodo: "Nodo-GDL" },
+      { nombre: "Sucursal Monterrey", nodo: "Nodo-MTY" },
+      { nombre: "Sucursal Tijuana", nodo: "Nodo-TIJ" }
+    ];
+
     const clientesData = [
       { _id: new ObjectId(), nombre: "Ana Ruiz López", curp: "RULA900101MDFXXX01", telefono: "6121000001", correo: "ana.ruiz@nexus.com" },
       { _id: new ObjectId(), nombre: "Luis Pérez Gómez", curp: "PEGL850203HDFXXX02", telefono: "6121000002", correo: "luis.perez@nexus.com" },
@@ -44,39 +53,56 @@ async function crearBaseDeDatos() {
       fechaApertura: new Date()
     }));
 
-    const transaccionesData = [];
 
-    cuentasData.forEach((cuenta, index) => {
-      transaccionesData.push(
-        {
-          _id: new ObjectId(),
-          cuentaId: cuenta._id,
-          numeroCuenta: cuenta.numeroCuenta,
-          tipo: "Depósito",
-          monto: cuenta.saldo,
-          descripcion: "Depósito inicial",
-          fecha: new Date()
-        },
-        {
-          _id: new ObjectId(),
-          cuentaId: cuenta._id,
-          numeroCuenta: cuenta.numeroCuenta,
-          tipo: "Retiro",
-          monto: 500,
-          descripcion: "Retiro en cajero automático",
-          fecha: new Date()
-        }
-      );
-    });
+  const transaccionesData = [];
+
+  cuentasData.forEach((cuenta, index) => {//agrego de sucursales
+    const sucursal = sucursales[index % sucursales.length];
+    transaccionesData.push(
+      {
+        _id: new ObjectId(),
+        cuentaId: cuenta._id,
+        numeroCuenta: cuenta.numeroCuenta,
+        tipo: "Depósito",
+        monto: cuenta.saldo,
+        descripcion: "Depósito inicial",
+        sucursal: sucursal.nombre,
+        nodoOrigen: sucursal.nodo,
+        fecha: new Date(),
+        estado: "Completada"
+      },
+      {
+        _id: new ObjectId(),
+        cuentaId: cuenta._id,
+        numeroCuenta: cuenta.numeroCuenta,
+        tipo: "Retiro",
+        monto: 500,
+        descripcion: "Retiro en cajero automático",
+        sucursal: sucursal.nombre,
+        nodoOrigen: sucursal.nodo,
+        fecha: new Date(),
+        estado: "Completada"
+      }
+    );
+  });
 
     await clientes.insertMany(clientesData);
     await cuentas.insertMany(cuentasData);
     await transacciones.insertMany(transaccionesData);
-
+    
+    //clientes
     await clientes.createIndex({ curp: 1 }, { unique: true });
+
+    //cuentas
     await cuentas.createIndex({ numeroCuenta: 1 }, { unique: true });
     await cuentas.createIndex({ clienteId: 1 });
+    
+    //transacciones
     await transacciones.createIndex({ cuentaId: 1 });
+    await transacciones.createIndex({ cuentaId: 1 });
+    await transacciones.createIndex({ numeroCuenta: 1 });
+    await transacciones.createIndex({ sucursal: 1 });
+    await transacciones.createIndex({ fecha: -1 });
 
     console.log("Base de datos creada correctamente");
     console.log(`Clientes insertados: ${clientesData.length}`);
