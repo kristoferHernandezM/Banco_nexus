@@ -574,6 +574,22 @@ app.use((err, req, res, next) => {
   });
 });
 
+app.get("/api/sucursales", async (req, res) => {
+  try {
+    const sucursales = [
+      { nombre: "Sucursal La Paz", nodo: "Nodo-LaPaz" },
+      { nombre: "Sucursal CDMX", nodo: "Nodo-CDMX" },
+      { nombre: "Sucursal Guadalajara", nodo: "Nodo-GDL" },
+      { nombre: "Sucursal Monterrey", nodo: "Nodo-MTY" },
+      { nombre: "Sucursal Tijuana", nodo: "Nodo-TIJ" }
+    ];
+
+    res.json(sucursales);
+  } catch (error) {
+    res.status(500).json({ error: "Error al obtener sucursales" });
+  }
+});
+
 //iniciar servidor después de conectar a MongoDB
 conectarMongoDB().then(() => {
   app.listen(port, () => {
